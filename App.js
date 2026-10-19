@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Checkbox from 'expo-checkbox';
@@ -46,8 +47,83 @@ export default function App() {
   // 8. Date and Time picker states
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showNativeDatePicker, setShowNativeDatePicker] = useState(false);
+  const [showNativeTimePicker, setShowNativeTimePicker] = useState(false);
+  const [showModalDatePicker, setShowModalDatePicker] = useState(false);
+  const [showModalTimePicker, setShowModalTimePicker] = useState(false);
+
+  // Temporary date modal values
+  const [tempYear, setTempYear] = useState(date.getFullYear());
+  const [tempMonth, setTempMonth] = useState(date.getMonth());
+  const [tempDay, setTempDay] = useState(date.getDate());
+
+  // Temporary time modal values
+  const [tempHour, setTempHour] = useState(date.getHours());
+  const [tempMinute, setTempMinute] = useState(date.getMinutes());
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+  const daysInMonth = new Date(tempYear, tempMonth + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
+
+  // Open Date Picker Handler
+  const handleOpenDatePicker = () => {
+    if (Platform.OS === 'web') {
+      setTempYear(date.getFullYear());
+      setTempMonth(date.getMonth());
+      setTempDay(date.getDate());
+      setShowModalDatePicker(true);
+    } else {
+      setShowNativeDatePicker(true);
+    }
+  };
+
+  // Open Time Picker Handler
+  const handleOpenTimePicker = () => {
+    if (Platform.OS === 'web') {
+      setTempHour(time.getHours());
+      setTempMinute(time.getMinutes());
+      setShowModalTimePicker(true);
+    } else {
+      setShowNativeTimePicker(true);
+    }
+  };
+
+  const handleConfirmModalDate = () => {
+    const validDay = Math.min(tempDay, new Date(tempYear, tempMonth + 1, 0).getDate());
+    const newDate = new Date(date);
+    newDate.setFullYear(tempYear, tempMonth, validDay);
+    setDate(newDate);
+    setShowModalDatePicker(false);
+  };
+
+  const handleConfirmModalTime = () => {
+    const newTime = new Date(time);
+    newTime.setHours(tempHour, tempMinute, 0, 0);
+    setTime(newTime);
+    setShowModalTimePicker(false);
+  };
+
+  const onNativeDateChange = (event, selectedDate) => {
+    setShowNativeDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
+
+  const onNativeTimeChange = (event, selectedTime) => {
+    setShowNativeTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      setTime(selectedTime);
+    }
+  };
 
   // 3. Button action handler (console everything typed and selected)
   const handleSubmit = () => {
@@ -85,20 +161,6 @@ export default function App() {
       JSON.stringify(formData, null, 2),
       [{ text: 'OK' }]
     );
-  };
-
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
-  };
-
-  const onTimeChange = (event, selectedTime) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selectedTime) {
-      setTime(selectedTime);
-    }
   };
 
   return (
@@ -216,35 +278,48 @@ export default function App() {
         {/* 8. Date and Time picker */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Date & Time Selection (Date and time picker)</Text>
-          <View style={styles.buttonSpacing}>
-            <Button
-              title={`Select Date: ${date.toLocaleDateString()} (Date picker)`}
-              onPress={() => setShowDatePicker(true)}
-            />
+
+          <View style={styles.dateDisplayRow}>
+            <Text style={styles.dateDisplayText}>
+              Current Date: {date.toLocaleDateString()}
+            </Text>
           </View>
           <View style={styles.buttonSpacing}>
             <Button
-              title={`Select Time: ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (Time picker)`}
-              onPress={() => setShowTimePicker(true)}
+              title="Open Date Picker (Date picker)"
+              onPress={handleOpenDatePicker}
             />
           </View>
 
-          {showDatePicker && (
+          <View style={styles.dateDisplayRow}>
+            <Text style={styles.dateDisplayText}>
+              Current Time: {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
+          <View style={styles.buttonSpacing}>
+            <Button
+              title="Open Time Picker (Time picker)"
+              onPress={handleOpenTimePicker}
+            />
+          </View>
+
+          {/* Native Mobile DateTimePickers */}
+          {showNativeDatePicker && (
             <DateTimePicker
               value={date}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
+              onChange={onNativeDateChange}
             />
           )}
 
-          {showTimePicker && (
+          {showNativeTimePicker && (
             <DateTimePicker
               value={time}
               mode="time"
               is24Hour={false}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onTimeChange}
+              onChange={onNativeTimeChange}
             />
           )}
         </View>
@@ -254,6 +329,134 @@ export default function App() {
           <Text style={styles.label}>Submit Form (Button)</Text>
           <Button title="Submit (Button)" onPress={handleSubmit} />
         </View>
+
+        {/* Universal Date Picker Modal (Guaranteed to work on Web and all platforms) */}
+        <Modal
+          visible={showModalDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowModalDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalHeading}>Select Date (Date picker)</Text>
+
+              <Text style={styles.modalSubLabel}>Month:</Text>
+              <View style={styles.modalPickerWrap}>
+                <Picker
+                  selectedValue={tempMonth}
+                  onValueChange={(val) => setTempMonth(Number(val))}
+                >
+                  {months.map((m, idx) => (
+                    <Picker.Item key={m} label={m} value={idx} />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={styles.modalSubLabel}>Day:</Text>
+              <View style={styles.modalPickerWrap}>
+                <Picker
+                  selectedValue={tempDay}
+                  onValueChange={(val) => setTempDay(Number(val))}
+                >
+                  {days.map((d) => (
+                    <Picker.Item key={d} label={String(d)} value={d} />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={styles.modalSubLabel}>Year:</Text>
+              <View style={styles.modalPickerWrap}>
+                <Picker
+                  selectedValue={tempYear}
+                  onValueChange={(val) => setTempYear(Number(val))}
+                >
+                  {years.map((y) => (
+                    <Picker.Item key={y} label={String(y)} value={y} />
+                  ))}
+                </Picker>
+              </View>
+
+              <View style={styles.modalButtonRow}>
+                <View style={{ flex: 1, marginRight: 6 }}>
+                  <Button
+                    title="Cancel"
+                    color="#666"
+                    onPress={() => setShowModalDatePicker(false)}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 6 }}>
+                  <Button
+                    title="Set Date"
+                    onPress={handleConfirmModalDate}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Universal Time Picker Modal (Guaranteed to work on Web and all platforms) */}
+        <Modal
+          visible={showModalTimePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowModalTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalHeading}>Select Time (Time picker)</Text>
+
+              <Text style={styles.modalSubLabel}>Hour (0 - 23):</Text>
+              <View style={styles.modalPickerWrap}>
+                <Picker
+                  selectedValue={tempHour}
+                  onValueChange={(val) => setTempHour(Number(val))}
+                >
+                  {hours.map((h) => (
+                    <Picker.Item
+                      key={h}
+                      label={h < 10 ? `0${h}:00` : `${h}:00`}
+                      value={h}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={styles.modalSubLabel}>Minute (0 - 59):</Text>
+              <View style={styles.modalPickerWrap}>
+                <Picker
+                  selectedValue={tempMinute}
+                  onValueChange={(val) => setTempMinute(Number(val))}
+                >
+                  {minutes.map((m) => (
+                    <Picker.Item
+                      key={m}
+                      label={m < 10 ? `0${m}` : `${m}`}
+                      value={m}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <View style={styles.modalButtonRow}>
+                <View style={{ flex: 1, marginRight: 6 }}>
+                  <Button
+                    title="Cancel"
+                    color="#666"
+                    onPress={() => setShowModalTimePicker(false)}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 6 }}>
+                  <Button
+                    title="Set Time"
+                    onPress={handleConfirmModalTime}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -341,7 +544,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000000',
   },
+  dateDisplayRow: {
+    marginBottom: 6,
+  },
+  dateDisplayText: {
+    fontSize: 14,
+    color: '#333333',
+  },
   buttonSpacing: {
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    padding: 16,
+  },
+  modalHeading: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#000000',
+  },
+  modalSubLabel: {
+    fontSize: 13,
+    color: '#333333',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalPickerWrap: {
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    marginTop: 16,
   },
 });
